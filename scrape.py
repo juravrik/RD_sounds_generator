@@ -1,10 +1,13 @@
 import requests
-from tqdm import tqdm
+import json
 from pathlib import Path
 from bs4 import BeautifulSoup, Comment
 from time import sleep
 
-headers = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/65.0.3325.183 Safari/537.36 Vivaldi/1.96.1147.55"}
+
+with open('headers.json') as f:
+  headers = json.load(f)
+
 save_path = './lyrics/'
 index_url = "https://www31.atwiki.jp/touhoukashi/pages/527.html"
 
