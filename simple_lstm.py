@@ -4,8 +4,8 @@ import numpy as np
 import random
 from pathlib import Path
 from keras.callbacks import LambdaCallback
-from keras.models import Sequential
-from keras.layers import Dense, Activation, LSTM, Dropout
+from keras.models import Model
+from keras.layers import Input, Embedding, Dense, Activation, LSTM, Dropout
 from keras.optimizers import Adam
 
 m = MeCab.Tagger("-Owakati mecabrc")
@@ -31,21 +31,22 @@ for i in range(0, len(text) - maxlen, step):
 print('nb sequences:', len(sentences))
 
 print('Vectorization...')
-x = np.zeros((len(sentences), maxlen, len(chars)), dtype=np.bool)
-y = np.zeros((len(sentences), len(chars)), dtype=np.bool)
+x = np.zeros((len(sentences), maxlen), dtype=np.int64)
+y = np.zeros((len(sentences), len(chars)), dtype=np.int64)
 for i, sentence in enumerate(sentences):
     for t, char in enumerate(sentence):
-        x[i, t, char_indices[char]] = 1
-    y[i, char_indices[next_chars[i]]] = 1
+        x[i, t] = char_indices[char]
+    y[i, char_indices[next_chars[i]]] = 1 
 
 print('Build model...')
 
-model = Sequential()
-model.add(LSTM(128, input_shape=(maxlen, len(chars))))
-model.add(Dropout(rate=0.5))
-model.add(Dense(len(chars)))
-
-model.add(Activation('softmax'))
+word_input = Input(shape=(maxlen,), dtype=np.int64)
+embedded_word = Embedding(input_dim=len(chars)+1, output_dim=256, input_length=maxlen)(word_input)
+encoded_word = LSTM(256)(embedded_word)
+dropout_connection = Dropout(rate=0.2)(encoded_word)
+dense_connection = Dense(len(chars))(dropout_connection)
+output = Activation('softmax')(dense_connection)
+model = Model(inputs=word_input, outputs=output)
 
 optimizer = Adam()
 model.compile(loss='categorical_crossentropy', optimizer=optimizer)
@@ -72,12 +73,12 @@ def on_epoch_end(epoch, logs):
         sentence = text[start_index: start_index + maxlen]
         generated += sentence
         print('----- Generating with seed: "' + sentence + '"')
-        #sys.stdout.write(generated)
+        sys.stdout.write(generated)
 
         for i in range(100):
-            x_pred = np.zeros((1, maxlen, len(chars)))
+            x_pred = np.zeros((1, maxlen))
             for t, char in enumerate(sentence):
-                x_pred[0, t, char_indices[char]] = 1.
+                x_pred[0, t] = char_indices[char]
 
             preds = model.predict(x_pred, verbose=0)[0]
             next_index = sample(preds, diversity)
@@ -97,4 +98,4 @@ model.fit(x, y,
           epochs=60,
           callbacks=[print_callback])
 
-model.save('simple_lstm.h5')
+model.save('embedded_lstm.h5')
