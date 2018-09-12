@@ -1,20 +1,20 @@
-import MeCab
 import sys
 import numpy as np
 import random
 from pathlib import Path
 from keras.callbacks import LambdaCallback
 from keras.models import Model
-from keras.layers import Input, Embedding, Dense, Activation, LSTM, Dropout
+from keras.layers import Input, Embedding, Dense, Activation, LSTM, GRU, Dropout, multiply, RepeatVector
 from keras.optimizers import Adam
+from keras.layers.wrappers import Bidirectional, TimeDistributed
+from keras.layers.normalization import BatchNormalization
 
-m = MeCab.Tagger("-Owakati mecabrc")
 
 corpus = []
 for f in list(Path('lyrics/').glob("**/*.txt")):
     corpus.append(f.read_text().replace(" ", ""))
 
-text = m.parse(" ".join(corpus))
+text = " ".join(corpus)
 
 chars = sorted(list(set(text)))
 print('total chars:', len(chars))
@@ -42,16 +42,18 @@ print('Build model...')
 
 word_input = Input(shape=(maxlen,), dtype=np.int64)
 embedded_word = Embedding(input_dim=len(chars)+1, output_dim=256, input_length=maxlen)(word_input)
-encoded_word = LSTM(128, return_sequences=True)(embedded_word)
-dropout_connection1 = Dropout(rate=0.2)(encoded_word)
-decoded_word = LSTM(128)(dropout_connection1)
-dropout_connection2 = Dropout(rate=0.2)(decoded_word)
-dense_connection = Dense(len(chars))(dropout_connection2)
-output = Activation('softmax')(dense_connection)
+
+encoded_word = Bidirectional(GRU(128, return_sequences=True))(embedded_word)
+dropout_connection1 = Dropout(rate=0.5)(encoded_word)
+
+# attn_bn =
+
+decoded_word = Bidirectional(GRU(128))(dropout_connection1)
+dropout_connection2 = Dropout(rate=0.5)(decoded_word)
+output = Dense(len(chars), activation='softmax')(dropout_connection2)
 model = Model(inputs=word_input, outputs=output)
 
-optimizer = Adam()
-model.compile(loss='categorical_crossentropy', optimizer=optimizer)
+model.compile(loss='categorical_crossentropy', optimizer=Adam())
 
 
 def sample(preds, temperature=1.0):
@@ -100,7 +102,7 @@ print_callback = LambdaCallback(on_epoch_end=on_epoch_end)
 
 model.fit(x, y,
           batch_size=32,
-          epochs=60,
+          epochs=30,
           callbacks=[print_callback])
 
 model.save('encdec_lstm.h5')
