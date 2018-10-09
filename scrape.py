@@ -11,6 +11,7 @@ with open('headers.json') as f:
 save_path = './lyrics/'
 index_url = "https://www31.atwiki.jp/touhoukashi/pages/527.html"
 
+
 def get_content(url):
   resp = requests.get(url, timeout=1, headers=headers)
 
@@ -30,11 +31,11 @@ def get_content(url):
   for comment in soup(text=lambda x: isinstance(x, Comment)):
     comment.extract()
 
-  if soup.blockquote != None:
+  if soup.blockquote is not None:
     soup.blockquote.decompose()
 
   return soup
-  
+
 
 def write_lyrics(url, album, title):
   soup = get_content(url)
@@ -49,7 +50,7 @@ def access_lyrics(url, album):
     sleep(1)
     content = s.find("a")
 
-    if content != None:
+    if content is not None:
       write_lyrics("https:"+content.get("href"), album, content.string[3:])
 
 def access_album():
@@ -57,7 +58,7 @@ def access_album():
 
   for s in soup.table.find_all("a"):
     sleep(1)
-    album=s.get("title")[0]
+    album = s.get("title")[0]
     print(album)
     try:
       Path(save_path+album).mkdir()
@@ -68,4 +69,10 @@ def access_album():
 
 if __name__ == '__main__':
   access_album()
+
+:q
+:q
+:q!
+
+
 

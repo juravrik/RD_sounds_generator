@@ -1,12 +1,15 @@
 import sys
 import numpy as np
 import random
+import pickle
 from pathlib import Path
 from keras.callbacks import LambdaCallback
 from keras.models import Model
-from keras.layers import Input, Embedding, Dense, Activation, LSTM, GRU, Dropout, multiply, RepeatVector
+from keras.layers import Input, Embedding, Dense, GRU
+from keras.layers import Dropout, multiply, RepeatVector
 from keras.optimizers import Adam
-from keras.layers.wrappers import Bidirectional, TimeDistributed
+from keras.layers.core import Flatten
+from keras.layers.wrappers import Bidirectional
 from keras.layers.normalization import BatchNormalization
 
 
@@ -41,14 +44,20 @@ for i, sentence in enumerate(sentences):
 print('Build model...')
 
 word_input = Input(shape=(maxlen,), dtype=np.int64)
-embedded_word = Embedding(input_dim=len(chars)+1, output_dim=256, input_length=maxlen)(word_input)
+embedded_word = Embedding(input_dim=len(chars)+1, output_dim=512, input_length=maxlen)(word_input)
 
-encoded_word = Bidirectional(GRU(128, return_sequences=True))(embedded_word)
+encoded_word = GRU(256)(embedded_word)
 dropout_connection1 = Dropout(rate=0.5)(encoded_word)
 
-# attn_bn =
+attn_input = Dense(1028)(Flatten()(embedded_word))
+attn_bn = BatchNormalization()(attn_input)
+attn_vec = Dense(256, activation='softmax')(attn_bn)
 
-decoded_word = Bidirectional(GRU(128))(dropout_connection1)
+mul = multiply([dropout_connection1, attn_vec])
+
+
+decoder_input = RepeatVector(maxlen)(mul)
+decoded_word = Bidirectional(GRU(128))(decoder_input)
 dropout_connection2 = Dropout(rate=0.5)(decoded_word)
 output = Dense(len(chars), activation='softmax')(dropout_connection2)
 model = Model(inputs=word_input, outputs=output)
